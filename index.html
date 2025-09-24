@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DUPR Doubles Race‑to‑R Scoreline Predictor</title>
+  <style>
+    :root{--bg:#0b0d12;--card:#121621;--ink:#e8ecf3;--muted:#9aa4b2;--accent:#5ee1a7;--ring:#2a3342;--err:#ff7b7b}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0a0d13, #0e1320);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji"}
+    .wrap{max-width:880px;margin:24px auto;padding:16px}
+    .title{font-weight:800;letter-spacing:.2px;font-size:clamp(22px,3.4vw,28px);margin:4px 0 14px}
+    .grid{display:grid;grid-template-columns:1fr;gap:14px}
+    @media(min-width:720px){.grid{grid-template-columns:1.1fr .9fr}}
+    .card{background:var(--card);border:1px solid var(--ring);border-radius:18px;padding:16px}
+    .card h2{margin:2px 0 12px;font-size:16px;font-weight:700;color:var(--ink)}
+    .row{display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center;margin:8px 0}
+    label{color:var(--muted);font-size:12.5px}
+    input[type=number]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #2a3444;background:#0d1220;color:var(--ink);outline:none}
+    input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px #5ee1a733}
+    .hint{color:var(--muted);font-size:12px}
+    .out{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .pill{background:#0d1422;border:1px dashed #2a3444;border-radius:14px;padding:12px}
+    .big{font-size:34px;font-weight:800;letter-spacing:.4px}
+    .ok{color:var(--accent)}
+    .muted{color:var(--muted)}
+    .kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .kpi .cell{background:#0b101e;border:1px solid #1f2838;border-radius:12px;padding:10px}
+    .cell .lab{font-size:11px;color:var(--muted)}
+    .cell .val{font-size:16px;font-weight:700}
+    .bar{height:10px;border-radius:8px;background:#121828;border:1px solid #243049;overflow:hidden}
+    .fill{height:100%;background:linear-gradient(90deg,#56e39f,#6ae3df)}
+    .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+    button{background:#161c2b;border:1px solid #2a3444;color:var(--ink);padding:9px 12px;border-radius:12px;font-weight:700;cursor:pointer}
+    button:focus{outline:none;box-shadow:0 0 0 3px #5ee1a733}
+    button.primary{background:linear-gradient(90deg,#3dd6a9,#6ae3df);color:#0b1018;border:none}
+    .err{color:var(--err);font-size:12px;margin-top:6px}
+    footer{opacity:.7;font-size:12px;margin-top:18px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">DUPR Doubles Scoreline Predictor (Race‑to‑R)</div>
+    <div class="grid">
+      <section class="card" aria-labelledby="inputs">
+        <h2 id="inputs">Inputs</h2>
+        <div class="row"><label for="my">My rating</label><input id="my" type="number" step="0.001" min="1" max="8" value="2.000"></div>
+        <div class="row"><label for="partner">Partner rating</label><input id="partner" type="number" step="0.001" min="1" max="8" value="2.000"></div>
+        <div class="row"><label for="opp1">Opp1 rating</label><input id="opp1" type="number" step="0.001" min="1" max="8" value="2.000"></div>
+        <div class="row"><label for="opp2">Opp2 rating</label><input id="opp2" type="number" step="0.001" min="1" max="8" value="2.000"></div>
+        <div class="row"><label for="race">Winning point (R)</label><input id="race" type="number" step="1" min="1" max="21" value="13"></div>
+        <div class="row"><label for="sens">Sensitivity constant</label><input id="sens" type="number" step="0.01" min="0.05" max="5" value="0.5"></div>
+        <div class="btns">
+          <button id="reset">Reset to 2.000</button>
+          <button id="share" class="primary">Copy shareable link</button>
+        </div>
+        <div id="err" class="err" role="alert" aria-live="polite"></div>
+        <p class="hint">All calculations are hidden. Outputs update live.</p>
+      </section>
+
+      <section class="card" aria-labelledby="outputs">
+        <h2 id="outputs">Predicted scoreline (rounded)</h2>
+        <div class="out">
+          <div class="pill">
+            <div class="muted">My team points</div>
+            <div id="myPts" class="big ok">13</div>
+          </div>
+          <div class="pill">
+            <div class="muted">Opponents' points</div>
+            <div id="oppPts" class="big">7</div>
+          </div>
+        </div>
+
+        <div class="kpi">
+          <div class="cell"><div class="lab">My team rating</div><div id="myTeam" class="val">2.000</div></div>
+          <div class="cell"><div class="lab">Opp team rating</div><div id="oppTeam" class="val">2.000</div></div>
+          <div class="cell" style="grid-column:1 / -1">
+            <div class="lab">Win probability (race‑to‑R)</div>
+            <div class="bar" aria-hidden="true"><div id="winFill" class="fill" style="width:50%"></div></div>
+            <div id="winProb" class="val">50.0%</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer>Method: logistic rally model → negative‑binomial race‑to‑R. Winner always shown as <strong>R</strong>. Opponent (or my) points are rounded and clamped to 0…R‑1.</footer>
+  </div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const inputs = ['my','partner','opp1','opp2','race','sens'].map($);
+  const myPtsEl = $('myPts'), oppPtsEl = $('oppPts');
+  const myTeamEl = $('myTeam'), oppTeamEl = $('oppTeam');
+  const winProbEl = $('winProb'), winFillEl = $('winFill');
+  const errEl = $('err');
+
+  // Negative binomial win prob for race-to-r with rally win prob p
+  // P(win) = sum_{k=0}^{r-1} C(r-1+k, k) p^r (1-p)^k
+  function winProbRaceToR(p, r){
+    if(p<=0) return 0; if(p>=1) return 1;
+    let logP = Math.log(p), logQ = Math.log(1-p);
+    let sum = 0;
+    let logTerm = (r-1)*Math.log(1) - 0; // placeholder
+    // compute iteratively to avoid overflow
+    let term = Math.exp(r*logP); // when k=0, C(r-1,0)=1
+    sum += term;
+    for(let k=1;k<=r-1;k++){
+      // multiply previous term by ((r-1+k)/k) * (1-p)
+      term *= ((r-1 + k)/k) * (1-p);
+      sum += term;
+    }
+    return sum; // already includes p^r (1-p)^k pieces
+  }
+
+  function clamp(x,a,b){return Math.min(b,Math.max(a,x))}
+
+  function compute(){
+    errEl.textContent='';
+    const my = parseFloat($('my').value);
+    const partner = parseFloat($('partner').value);
+    const opp1 = parseFloat($('opp1').value);
+    const opp2 = parseFloat($('opp2').value);
+    const r = Math.round(parseFloat($('race').value));
+    const s = parseFloat($('sens').value);
+
+    if([my,partner,opp1,opp2,r,s].some(x=>!isFinite(x))){errEl.textContent='Please enter valid numbers.';return}
+    if(r<1){errEl.textContent='Winning point R must be at least 1.';return}
+    if(s<=0){errEl.textContent='Sensitivity must be > 0.';return}
+
+    const myTeam = (my+partner)/2;
+    const oppTeam = (opp1+opp2)/2;
+
+    // Rally win probability via logistic, clamped 0.01..0.99
+    let p = 1/(1+Math.exp(-((myTeam-oppTeam)/s)));
+    p = clamp(p,0.01,0.99);
+
+    // Race-to-r win probability
+    const pw = clamp(winProbRaceToR(p, r), 0, 1);
+
+    // Expected opponent points if we win; expected my points if we lose
+    const oppIfWeWin = r*(1-p)/p;
+    const meIfWeLose = r*p/(1-p);
+
+    // Rounded scoreline with winner always at R, and loser clamped 0..R-1
+    let myRounded, oppRounded;
+    if(pw >= 0.5){
+      myRounded = r;
+      oppRounded = Math.min(r-1, Math.max(0, Math.round(oppIfWeWin)));
+    } else {
+      myRounded = Math.min(r-1, Math.max(0, Math.round(meIfWeLose)));
+      oppRounded = r;
+    }
+
+    // Update UI
+    myPtsEl.textContent = String(myRounded);
+    oppPtsEl.textContent = String(oppRounded);
+    myTeamEl.textContent = myTeam.toFixed(3);
+    oppTeamEl.textContent = oppTeam.toFixed(3);
+    winProbEl.textContent = (pw*100).toFixed(1)+"%";
+    winFillEl.style.width = (pw*100).toFixed(2)+"%";
+
+    // Save to URL for sharing
+    const params = new URLSearchParams({my,partner,opp1,opp2,r,s});
+    history.replaceState(null,'', location.pathname + '?' + params.toString());
+  }
+
+  function fromURL(){
+    const q = new URLSearchParams(location.search);
+    const map = {my:'my', partner:'partner', opp1:'opp1', opp2:'opp2', r:'race', s:'sens'};
+    let touched=false;
+    for(const [k,id] of Object.entries(map)){
+      if(q.has(k)){$(id).value = q.get(k); touched=true}
+    }
+    if(touched) compute();
+  }
+
+  inputs.forEach(el=>el.addEventListener('input', compute));
+  $('reset').addEventListener('click', ()=>{
+    $('my').value = '2.000';
+    $('partner').value = '2.000';
+    $('opp1').value = '2.000';
+    $('opp2').value = '2.000';
+    $('race').value = '13';
+    $('sens').value = '0.5';
+    compute();
+  });
+  $('share').addEventListener('click', async ()=>{
+    const url = location.href;
+    try{await navigator.clipboard.writeText(url); $('share').textContent='Link copied!'}catch{ $('share').textContent='Copy failed'}
+    setTimeout(()=>{$('share').textContent='Copy shareable link'}, 1500);
+  });
+
+  fromURL();
+  compute();
+})();
+</script>
+</body>
+</html>
